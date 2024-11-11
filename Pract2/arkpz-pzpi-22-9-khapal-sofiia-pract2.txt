@@ -209,7 +209,7 @@ public class MapViewer { ... }
 6. Висновок:
 Під час підготовки презентації, я навчилася основним методам рефакторингу коду на основі реальних прикладів з власної лабораторної роботи. Крім того навчилася ідентифікувати проблеми в коді та використовувати відповідні методи рефакторингу для покращення його якості.
 Посилання на відео:
-
+https://youtu.be/UY3CQQfGP6g?feature=shared
 Посилання на репозиторій з кодом: 
 https://github.com/NureKhapalSofiia/arkpz-pzpi-22-9-khapal-sofiia/blob/Pract1/arkpz-pzpi-22-9-khapal-sofiia-pract2/arkpz-pzpi-22-9-khapal-sofiia-pract2.java
 ДОДАТОК А
