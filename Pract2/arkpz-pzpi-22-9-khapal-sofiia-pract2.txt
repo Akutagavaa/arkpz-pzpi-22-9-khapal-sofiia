@@ -1,0 +1,253 @@
+Міністерство освіти і науки України
+Харківський національний університет радіоелектроніки
+
+Кафедра програмної інженерії
+
+
+
+Звіт
+з практичної роботи №2
+з дисципліни «Аналіз та рефакторинг коду»
+з теми: «Методи рефакторингу коду програмного забезпечення»
+
+
+
+
+
+Виконала:                                                                          Перевірив:
+студентка групи ПЗПІ-22-9                                            ст. вк. Сокорчук І.П.
+Хапаль С.Є.
+
+Харків 2024
+1 МЕТОДИ РЕФАКТОРИНГУ КОДУ ПРОГРАМНОГО ЗАБЕЗПЕЧЕННЯ
+
+2. Мета роботи
+Навчити студентів основним методам рефакторингу коду на основі реальних прикладів з їхніх власних програмних проєктів. Студенти повинні навчитися ідентифікувати проблеми в коді та використовувати відповідні методи рефакторингу для покращення його якості.
+3. Хід роботи
+1. Для дослідження методів рефакторингу було обрано наступні методи: виділення методу, інлайн методу, переміщення методу.
+2. У якості прикладів для демонстрації застосування рефакторингу біло обрано код з лабораторної роботи.
+3. Нижче наведено обрані методі рефакторингу та приклади коду з їх застосуванням:
+1. Опис проблеми:
+Глибока вкладеність if-умов ускладнює читання і розуміння логіки методу, а повторення коду з однаковою логікою для виведення індексу та типу вузла ускладнює його підтримку. Метод print обробляє типи вузлів і виводить їх інформацію, що порушує принцип єдиної відповідальності. Крім того, логіку для друку TreeNode і ListNode неможливо легко використати в інших частинах програми, що обмежує повторне використання.
+Код до рефакторингу:
+/java/
+public static void print(Map<?, ?> map, boolean printEmptyBuckets) throws ReflectiveOperationException {
+Object[] tableArray = (Object[]) get(map, TABLE_FIELD_NAME);
+	for (int i = 0; i < tableArray.length; i++) {
+		Object currentNode = tableArray[i];
+		if (currentNode != null) {
+			if (currentNode.getClass().getSimpleName().equals(TREE_NODE)) {
+				System.out.print("[" + i + "]Tree: "); 
+				printTreeNode(currentNode, 0);
+			} else if (currentNode.getClass().getSimpleName().equals(LIST_NODE)) {
+				System.out.print("[" + i + "]List: "); 
+				printListNode(currentNode);
+				System.out.println(); 
+			}
+		} else {
+			if (printEmptyBuckets) {
+				System.out.print("[" + i + "]null");
+				System.out.println(); 
+			}
+		}
+	}
+}
+Пояснення обраного методу:
+Метод Extract Method було обрано для зменшення вкладеності й дублювання коду в методі print, який раніше мав глибокі if-умови і повторював логіку виведення індексу та типу вузла. Це ускладнює підтримку й порушує принцип єдиної відповідальності, оскільки метод поєднував обробку вузлів різних типів з їх виведенням.
+Завдяки виділенню окремих методів для TreeNode, ListNode та null основний метод print стане простішим і зосередженим на обході масиву. Кожен тип вузла буде оброблятися окремо, що робить код модульним, легким для розширення та підтримки.
+Код після рефакторингу:
+/java/
+public static void print(Map<?, ?> map, boolean printEmptyBuckets) throws ReflectiveOperationException {
+    Object[] tableArray = (Object[]) get(map, TABLE_FIELD_NAME);
+    for (int i = 0; i < tableArray.length; i++) {
+        Object currentNode = tableArray[i];
+        if (currentNode != null) {
+            printNode(i, currentNode);
+        } else if (printEmptyBuckets) {
+            printEmptyBucket(i);
+        }
+    }
+}
+private static void printNode(int index, Object currentNode) throws ReflectiveOperationException {
+    String nodeType = currentNode.getClass().getSimpleName();
+    if (nodeType.equals(TREE_NODE)) {
+        printTreeNode(index, currentNode);
+    } else if (nodeType.equals(LIST_NODE)) {
+        printListNode(index, currentNode);
+    }
+}
+private static void printTreeNode(int index, Object treeNode) throws ReflectiveOperationException {
+    System.out.print("[" + index + "]Tree: ");
+    printTreeNode(treeNode, 0);
+}
+private static void printListNode(int index, Object listNode) throws ReflectiveOperationException {
+    System.out.print("[" + index + "]List: ");
+    printListNodeDetails(listNode);
+    System.out.println();
+}
+Переваги отриманого коду після застосування методу:
+Зниження вкладеності досягнуто виділенням методів для TreeNode і ListNode, що зробило метод print лаконічнішим та зосередженим на обході tableArray. Розмежування обов’язків завдяки окремим методам для TreeNode, ListNode та null покращує відповідність принципу єдиної відповідальності. Зменшення дублювання коду забезпечено винесенням виведення індексу та типу вузла в окремі методи, що спрощує внесення змін. Легкість розширення дозволяє додавати нові типи вузлів або змінювати логіку без змін у головному циклі.
+2. Опис проблеми:
+Надмірне дублювання методів printTreeNode(int index, Object treeNode) і printTreeNode(Object node, int level) створює зайвий рівень абстракції, знижуючи читабельність коду, подібно до ситуації з методами printListNode(int index, Object listNode) і printListNodeDetails(Object o), де розділення не додає цінності, оскільки обробку списку можна об’єднати в один метод. Це ускладнює підтримку, оскільки зміни в логіці друку потрібно вносити в кількох місцях, що підвищує ризик помилок.
+Код до рефакторингу:
+/java/
+private static void printTreeNode(int index, Object treeNode) throws ReflectiveOperationException {
+    System.out.print("[" + index + "]Tree: ");
+    printTreeNode(treeNode, 0);
+}
+private static void printListNode(int index, Object listNode) throws ReflectiveOperationException {
+    System.out.print("[" + index + "]List: ");
+    printListNodeDetails(listNode);
+    System.out.println();
+}
+private static void printListNodeDetails(Object o) throws ReflectiveOperationException {
+    System.out.print("Node[" + o + "|");
+    Object node = o;
+    while ((node = get(node, "next")) != null) {
+        System.out.print(" => " + "The next Node of this tree is |"
+            + node + "|");
+    }
+}
+private static void printTreeNodeDetails(Object node, int level) {
+    printIndent(level);
+    System.out.println("TreeNode[" + node + "|");
+    Object rightNode = get(node, "right");
+    if (rightNode != null) {
+        printTreeNode(rightNode, level + 1);
+    }
+    Object leftNode = get(node, "left");
+    if (leftNode != null) {
+        printTreeNode(leftNode, level + 1);
+    }
+}
+Пояснення обраного методу:
+Метод Inline Method було обрано для зменшення дублювання та зайвої абстракції в коді. Метод printTreeNode(int index, Object treeNode) і його дублювання printTreeNode(Object node, int level) не додає цінності, створюючи надлишковий рівень абстракції, який знижував читабельність і ускладнював внесення змін. Аналогічна проблема існує з методами printListNode(int index, Object listNode) і printListNodeDetails(Object o), де логіка виведення об'єднана.
+Об'єднання логіки друку списку і дерева в одному методі дозволить усунути дублювання, зробивши код компактнішим і зрозумілішим. Додавання параметра index до printTreeNode дозволить використовувати його як для кореневого вузла, так і для піддерев, підвищуючи узгодженість і модульність. Видалення зайвих методів зменшить кількість місць для внесення змін, покращивши підтримуваність і надійність коду. 
+Код після рефакторингу:
+/java/
+private static void printListNode(int index, Object listNode) throws ReflectiveOperationException {
+System.out.print("[" + index + "]List: Node|" + listNode + "|");
+	Object node = listNode;
+	while ((node = get(node, "next")) != null) {
+		System.out.print(" ==> The next Node of this tree is |" + node + "|");
+	}
+	System.out.println();
+}
+private static void printTreeNode(Object node, int level, Integer index) throws ReflectiveOperationException {
+	if (index != null) {
+		System.out.print("[" + index + "]Tree: ");
+	}
+	printIndent(level);
+	System.out.println("TreeNode|" + node + "|");
+	Object rightNode = get(node, "right");
+	if (rightNode != null) {
+		printTreeNode(rightNode, level + 1, null);
+	}
+	Object leftNode = get(node, "left");
+	if (leftNode != null) {
+		printTreeNode(leftNode, level + 1, null);
+	}
+}
+Переваги отриманого коду після застосування методу:
+Об'єднання логіки друку списку в одному методі усунуло дублювання коду, зробивши його компактнішим і зрозумілішим. Додавання параметра index до методу printTreeNode дозволило використовувати його як для кореневого вузла, так і для піддерев, що підвищило узгодженість і модульність коду. Видалення зайвих методів зменшило кількість місць для внесення змін, покращивши підтримку та надійність. Загалом, рефакторинг зробив код ефективнішим, структурованішим, а також зручнішим для використання та розширення.
+3. Опис проблеми:
+Проблема цього коду полягає в тому, що метод get() у класі MapViewer займається отриманням полів об'єктів через рефлексію, що не відповідає основній відповідальності класу. MapViewer має зосереджуватися на візуалізації вузлів, а метод get() слід перемістити в окремий клас, наприклад, ReflectionHelper. Це зробить код модульнішим, дозволяючи MapViewer зосередитися на візуалізації, а обробку рефлексії передати іншому компоненту.
+Код до рефакторингу:
+/java/
+public class MapViewer {
+	private static final int INDENT_SPACES = 7;
+    	private static final String TREE_NODE = "TreeNode";
+    	private static final String LIST_NODE = "Node";
+
+	private static Object get(Object obj, String fieldName) {
+		try {
+			Field field = obj.getClass().getDeclaredField(fieldName);
+			field.setAccessible(true);
+			return field.get(obj);
+		} catch (NoSuchFieldException e) {
+			System.err.println("Field '" + fieldName + "' not found in the object: " + e.getMessage());
+		} catch (IllegalAccessException e) {
+			System.err.println("Access to the field '" + fieldName + "' is denied: " + e.getMessage());
+		}
+		return null;
+	}
+	public static void print(Map<?, ?> map, boolean printEmptyBuckets) throws ReflectiveOperationException { … }
+	private static void printNode(int index, Object currentNode) throws ReflectiveOperationException { … }
+	private static void printListNode(int index, Object listNode) throws ReflectiveOperationException { … }
+	private static void printTreeNode(Object node, int level, Integer index) throws ReflectiveOperationException { … }	
+	private static void printIndent(int level) { … }
+}
+Пояснення обраного методу:
+Метод Move Method було обрано для підвищення модульності та покращення структури коду. Проблема полягає в тому, що метод get() у класі MapViewer виконує обробку полів об'єктів через рефлексію, що не відповідає основній відповідальності цього класу, адже MapViewer мав зосереджуватися лише на візуалізації вузлів.
+Виділення методу get() в окремий клас FieldAccessor дозволить сконцентрувати логіку рефлексії в одному місці. Завдяки цьому MapViewer відповідатиме лише за візуалізацію даних, а FieldAccessor оброблятиме рефлексію. 
+Код після рефакторингу:
+/java/
+public class FieldAccessor{
+	private static Object get(Object obj, String fieldName) {
+		try {
+			Field field = obj.getClass().getDeclaredField(fieldName);
+			field.setAccessible(true);
+			return field.get(obj);
+		} catch (NoSuchFieldException e) {
+			System.err.println("Field '" + fieldName + "' not found in the object: " + e.getMessage());
+		} catch (IllegalAccessException e) {
+			System.err.println("Access to the field '" + fieldName + "' is denied: " + e.getMessage());
+		}
+		return null;
+}
+}
+public class MapViewer { ... }
+Переваги отриманого коду після застосування методу:
+У новому коді для підвищення модульності застосовано рефакторинг Move Method. Метод get() був винесений із класу MapViewer у новий клас FieldAccessor, який тепер відповідає за отримання полів об'єктів через рефлексію. Це зменшило відповідальність MapViewer, залишивши його сфокусованим на візуалізації вузлів, тоді як FieldAccessor обробляє рефлексію. Усі виклики get() у MapViewer замінено на FieldAccessor.get(), що зробило код чистішим, зрозумілішим і відповідним принципу єдиної відповідальності (SRP).
+4. Створено презентацію (див. Додаток A), в якій висвітлено наступні теми:
+	- що таке рефакторинг та чому його важливо використовувати.
+	- метод «Extract Method»
+ 	- метод «Inline Method»
+	- метод «Move Method»
+	- інструменти для автоматичного рефакторингу.
+5. Оформлено звіт до практичного заняття.
+6. Висновок:
+Під час підготовки презентації, я навчилася основним методам рефакторингу коду на основі реальних прикладів з власної лабораторної роботи. Крім того навчилася ідентифікувати проблеми в коді та використовувати відповідні методи рефакторингу для покращення його якості.
+Посилання на відео:
+
+Посилання на репозиторій з кодом: 
+https://github.com/NureKhapalSofiia/arkpz-pzpi-22-9-khapal-sofiia/blob/Pract1/arkpz-pzpi-22-9-khapal-sofiia-pract2/arkpz-pzpi-22-9-khapal-sofiia-pract2.java
+ДОДАТОК А
+Слайди презентації
+
+ 
+Рисунок А.1 - Слайд «Тема презентації»
+ 
+Рисунок А.2 - Слайд «Вступ»
+ 
+Рисунок А.3 - Слайд «Extract method»
+ 
+Рисунок А.4 - Слайд «Пояснення»
+ 
+Рисунок А.5 - Слайд «Код до рефакторингу»
+ 
+Рисунок А.6 - Слайд «Код після рефакторингу»
+ 
+Рисунок А.7 - Слайд «Inline method»
+ 
+Рисунок А.8 - Слайд «Пояснення»
+ 
+Рисунок А.9 - Слайд «Код до рефакторингу»
+ 
+Рисунок А.10 - Слайд «Код після рефакторингу»
+ 
+Рисунок А.11 - Слайд «Move method»
+ 
+Рисунок А.12 - Слайд «Пояснення»
+ 
+Рисунок А.13 - Слайд «Код до рефакторингу»
+ 
+Рисунок А.14 - Слайд «Код після рефакторингу»
+ 
+Рисунок А.15 - Слайд «Автоматичні засоби рефакторингу»
+ 
+Рисунок А.16 - Слайд «Автоматичні засоби рефакторингу»
+ 
+Рисунок А.17 - Слайд «Висновки»
+ 
+Рисунок А.18 - Слайд «Дякую за увагу»
